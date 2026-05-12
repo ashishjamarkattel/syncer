@@ -1,0 +1,32 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,300;0,400;0,500;0,600;0,700;0,900;1,300&display=swap");
+@import "tailwindcss";
+
+@theme {
+  --color-brand-violet: #5a7a55;
+  --color-brand-indigo: #4a6845;
+  --color-brand-light: #e8ede5;
+  --color-brand-cream: #ffffeb;
+}
+
+body {
+  font-family: "Inter", sans-serif;
+}
+
+@keyframes widthBar {
+  from { width: 0%; }
+  to { width: 100%; }
+}
+
+@keyframes fadeSlideUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+.animate-blink {
+  animation: blink 1s step-end infinite;
+}

@@ -1,0 +1,25 @@
+services:
+  backend:
+    build: ./video-polish
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./video-polish/.env
+    volumes:
+      - storage:/app/storage
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        - VITE_SUPABASE_URL
+        - VITE_SUPABASE_PUBLIC_KEY
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  storage:
