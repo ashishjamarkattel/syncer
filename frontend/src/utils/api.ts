@@ -102,14 +102,38 @@ export async function recaptionVideo(id: string, captionStyle: string): Promise<
   })
 }
 
-export function sourceUrl(id: string): string {
-  return `${BASE}/videos/${id}/source`
+async function fetchBlob(path: string): Promise<Blob> {
+  const { data: { session } } = await supabase.auth.getSession()
+  const headers = new Headers()
+  if (session?.access_token) headers.set('Authorization', `Bearer ${session.access_token}`)
+  const res = await fetch(`${BASE}${path}`, { headers })
+  if (!res.ok) throw new Error(await res.text())
+  return res.blob()
 }
 
-export function downloadUrl(id: string): string {
-  return `${BASE}/videos/${id}/download`
+export async function fetchVideoUrl(path: string): Promise<string> {
+  const blob = await fetchBlob(path)
+  return URL.createObjectURL(blob)
 }
 
-export function srtUrl(id: string): string {
-  return `${BASE}/videos/${id}/export/srt`
+export async function triggerDownload(path: string, filename: string): Promise<void> {
+  const blob = await fetchBlob(path)
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
+export function sourceApiPath(id: string): string {
+  return `/videos/${id}/source`
+}
+
+export function downloadApiPath(id: string): string {
+  return `/videos/${id}/download`
+}
+
+export function srtApiPath(id: string): string {
+  return `/videos/${id}/export/srt`
 }

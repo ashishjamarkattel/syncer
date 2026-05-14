@@ -7,7 +7,8 @@ import {
 } from 'lucide-react'
 import {
   getVideo, getSegments, updateVideo, processVideo, continueVideo,
-  chatWithVideo, updateSegment, recaptionVideo, sourceUrl, downloadUrl, srtUrl,
+  chatWithVideo, updateSegment, recaptionVideo,
+  fetchVideoUrl, triggerDownload, sourceApiPath, downloadApiPath, srtApiPath,
   type Video, type Segment,
 } from '../utils/api'
 
@@ -1089,21 +1090,19 @@ function DownloadWidget({ videoId, video, stage, onRecaption }: {
   return (
     <div className="space-y-3 max-w-sm">
       <div className="flex gap-2">
-        <a
-          href={downloadUrl(videoId)}
-          download
-          className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+        <button
+          onClick={() => triggerDownload(downloadApiPath(videoId), `polished_${videoId}.mp4`)}
+          className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold bg-blue-600 text-white hover:bg-blue-700 transition-colors cursor-pointer"
         >
           <Download className="w-4 h-4" />
           Download video
-        </a>
-        <a
-          href={srtUrl(videoId)}
-          download
-          className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold border border-gray-200 text-gray-700 hover:bg-gray-50 transition-colors"
+        </button>
+        <button
+          onClick={() => triggerDownload(srtApiPath(videoId), `subtitles_${videoId}.srt`)}
+          className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold border border-gray-200 text-gray-700 hover:bg-gray-50 transition-colors cursor-pointer"
         >
           Export SRT
-        </a>
+        </button>
       </div>
 
       <div className="border border-gray-200 rounded-2xl p-4 space-y-3 bg-white">
@@ -1146,11 +1145,23 @@ function PreviewPanel({ video, videoId, stage }: {
 }) {
   const [playing, setPlaying] = useState(false)
   const [aspectRatio, setAspectRatio] = useState<number | null>(null)
+  const [videoSrc, setVideoSrc] = useState<string>('')
   const videoRef = useRef<HTMLVideoElement>(null)
 
   const isDone = stage === 'done'
-  const cacheBust = video?.updated_at ? `?v=${encodeURIComponent(video.updated_at)}` : ''
-  const videoSrc = isDone ? `${downloadUrl(videoId)}${cacheBust}` : sourceUrl(videoId)
+
+  useEffect(() => {
+    let objectUrl = ''
+    const path = isDone
+      ? `${downloadApiPath(videoId)}${video?.updated_at ? `?v=${encodeURIComponent(video.updated_at)}` : ''}`
+      : sourceApiPath(videoId)
+
+    fetchVideoUrl(path)
+      .then(url => { objectUrl = url; setVideoSrc(url) })
+      .catch(() => {})
+
+    return () => { if (objectUrl) URL.revokeObjectURL(objectUrl) }
+  }, [videoId, isDone, video?.updated_at])
 
   const togglePlay = () => {
     if (!videoRef.current) return

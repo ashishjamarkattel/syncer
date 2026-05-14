@@ -66,7 +66,7 @@ def run_render_pipeline(video_id: str, storage_dir: str) -> None:
         sync_segments(video, video_dir, source_path)
 
         set_status(video_id, "rendering")
-        render(video, video_dir)
+        render(video, video_dir, source_path)
 
         if settings.r2_enabled:
             from app import storage

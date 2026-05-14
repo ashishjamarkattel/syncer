@@ -12,6 +12,38 @@ from app.utils.ffmpeg import run_ffmpeg, has_audio_stream
 logger = logging.getLogger(__name__)
 
 
+def _merge_segments(segments: list, min_duration: float = 4.0, min_words: int = 8) -> list[dict]:
+    """
+    Merge consecutive Whisper segments until each chunk meets min_duration and
+    min_words, but never merge across a sentence boundary (segment ending in
+    . ! ?).  This keeps the count manageable without splitting natural sentences.
+    """
+    merged: list[dict] = []
+    current: dict | None = None
+
+    for seg in segments:
+        text = seg.text.strip()
+        if current is None:
+            current = {"start": seg.start, "end": seg.end, "text": text}
+            continue
+
+        duration = current["end"] - current["start"]
+        word_count = len(current["text"].split())
+        ends_sentence = current["text"][-1] in ".!?"
+
+        if ends_sentence and duration >= min_duration and word_count >= min_words:
+            merged.append(current)
+            current = {"start": seg.start, "end": seg.end, "text": text}
+        else:
+            current["end"] = seg.end
+            current["text"] = current["text"] + " " + text
+
+    if current:
+        merged.append(current)
+
+    return merged
+
+
 def transcribe(video: Video, video_dir: str, source_path: str) -> None:
     logger.info("[transcribe] start video_id=%s", video.id)
 
@@ -41,23 +73,29 @@ def transcribe(video: Video, video_dir: str, source_path: str) -> None:
 
     words = response.words or []
 
-    # Build segment rows (no word_timestamps — stored separately on disk)
-    rows = []
-    word_map: dict[int, list] = {}  # insert_idx → list of word dicts
+    # Merge Whisper's fine-grained segments into coarser chunks.
+    # Whisper often produces 30-40 tiny segments for a 5-min video; merging keeps
+    # the segment count reasonable (< 15) which directly reduces TTS calls and
+    # filter_complex size.
+    merged = _merge_segments(list(response.segments), min_duration=4.0, min_words=8)
+    logger.info("[transcribe] %d whisper segments → %d merged segments", len(response.segments), len(merged))
 
-    for idx, seg in enumerate(response.segments):
+    rows = []
+    word_map: dict[int, list] = {}
+
+    for idx, seg in enumerate(merged):
         seg_words = [
             {"word": w.word, "start": w.start, "end": w.end}
             for w in words
-            if seg.start <= w.start <= seg.end
+            if seg["start"] <= w.start <= seg["end"]
         ]
         word_map[idx] = seg_words
         rows.append({
             "video_id": video.id,
             "index": idx,
-            "original_start": seg.start,
-            "original_end": seg.end,
-            "original_text": seg.text.strip(),
+            "original_start": seg["start"],
+            "original_end": seg["end"],
+            "original_text": seg["text"],
         })
 
     total_words = sum(len(r["original_text"].split()) for r in rows)
