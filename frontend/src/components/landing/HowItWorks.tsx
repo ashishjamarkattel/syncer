@@ -17,14 +17,14 @@ const slides: Slide[] = [
     visual: <UploadVisual />,
   },
   {
-    title: 'Whisper Transcription',
-    description: 'Every word is mapped to a precise timestamp using OpenAI Whisper.',
+    title: 'AI Transcription',
+    description: 'Every word is mapped to a precise timestamp for clean, accurate cuts.',
     tip: 'Word-level timestamps let us cut cleanly between real speech and filler.',
     visual: <TranscriptVisual />,
   },
   {
     title: 'AI Script Cleanup',
-    description: 'GPT-4o reads each segment and strips filler words, false starts, and hesitations.',
+    description: 'AI reads each segment and strips filler words, false starts, and hesitations.',
     tip: '"Um", "uh", "you know", "like" — gone. Natural pauses are preserved.',
     visual: <CleanupVisual />,
   },
@@ -143,7 +143,7 @@ function TranscriptVisual() {
     <div className="w-full h-full flex flex-col justify-center p-6 bg-gray-900 font-mono text-xs gap-2">
       <div className="text-gray-500 mb-2 text-[10px] uppercase tracking-wider flex items-center gap-2">
         <FileText className="w-3 h-3" />
-        Whisper transcript
+        Transcript
       </div>
       {lines.map((l, i) => (
         <div key={i} className="flex gap-3">

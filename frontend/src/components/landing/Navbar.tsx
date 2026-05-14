@@ -90,7 +90,7 @@ const Navbar: React.FC = () => {
               className="font-bold tracking-tight text-gray-900 transition-all duration-300"
               style={{ fontSize: `${lerp(22, 17, scrollProgress)}px` }}
             >
-              Video<span className="text-brand-violet">Polish</span>
+              Clip<span className="text-brand-violet">katha</span>
             </span>
           </Link>
 

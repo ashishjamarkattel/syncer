@@ -152,7 +152,7 @@ export default function Dashboard() {
             <Sparkles className="w-4 h-4 text-white" />
           </div>
           <span className="font-bold text-[#1a1a1a] text-lg tracking-tight">
-            Video<span className="text-brand-violet">Polish</span>
+            Clip<span className="text-brand-violet">katha</span>
           </span>
         </Link>
 
@@ -219,9 +219,9 @@ export default function Dashboard() {
               >
                 <item.icon className="w-4 h-4 shrink-0" />
                 <span className="flex-1 text-left">{item.label}</span>
-                {'badge' in item && item.badge && (
+                {'badge' in item && (item as { badge: string }).badge && (
                   <span className="px-1.5 py-0.5 text-[10px] font-bold bg-brand-violet text-white rounded-md leading-none">
-                    {item.badge}
+                    {(item as { badge: string }).badge}
                   </span>
                 )}
               </button>

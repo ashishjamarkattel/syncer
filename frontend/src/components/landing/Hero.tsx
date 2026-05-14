@@ -2,8 +2,8 @@ import React, { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { ArrowRight, Mic, Scissors, Volume2 } from 'lucide-react'
 
-const VIDEO_WITHOUT = 'https://pub-4919c2146317426eb560bc9c132a65c4.r2.dev/storyboard/0401.mp4'
-const VIDEO_WITH    = 'https://pub-4919c2146317426eb560bc9c132a65c4.r2.dev/storyboard/image2vid.mp4'
+const VIDEO_WITHOUT = 'https://pub-4919c2146317426eb560bc9c132a65c4.r2.dev/_previews/screen-capture.webm'
+const VIDEO_WITH    = 'https://pub-4919c2146317426eb560bc9c132a65c4.r2.dev/7f9e9e0a-fc1a-4949-b3a7-ed605ac7d5cc/output/polished.mp4'
 
 const Hero: React.FC = () => {
   const navigate = useNavigate()
@@ -22,12 +22,12 @@ const Hero: React.FC = () => {
         </h1>
 
         <p className="text-xl text-gray-500 max-w-2xl mx-auto mb-12 leading-relaxed font-light">
-          VideoPolish removes filler words, cleans your script with AI, and re-voices your content—so every recording sounds like your best take.
+          Clipkatha removes filler words, cleans your script with AI, and re-voices your content—so every recording sounds like your best take.
         </p>
 
         <div className="flex flex-wrap items-center justify-center gap-3 mb-12">
           {[
-            { icon: <Mic className="w-4 h-4" />, label: 'Whisper Transcription' },
+            { icon: <Mic className="w-4 h-4" />, label: 'AI Transcription' },
             { icon: <Scissors className="w-4 h-4" />, label: 'AI Filler Removal' },
             { icon: <Volume2 className="w-4 h-4" />, label: 'Voice Re-synthesis' },
           ].map((f) => (

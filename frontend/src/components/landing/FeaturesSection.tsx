@@ -54,7 +54,7 @@ const FeaturesSection: React.FC = () => {
             </span>
           </h2>
           <p className="text-gray-500 max-w-2xl mx-auto text-lg">
-            VideoPolish chains Whisper, GPT-4o, and OpenAI TTS into a fully automated pipeline—no editing skills required.
+            Clipkatha runs a fully automated AI pipeline—no editing skills required.
           </p>
         </div>
 

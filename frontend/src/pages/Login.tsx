@@ -53,7 +53,7 @@ export default function Login() {
                   Welcome Back
                 </h1>
                 <p className="text-gray-500 font-light">
-                  Sign in to continue to VideoPolish
+                  Sign in to continue to Clipkatha
                 </p>
               </div>
 

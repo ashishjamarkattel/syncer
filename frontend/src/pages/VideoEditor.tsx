@@ -224,7 +224,7 @@ export default function VideoEditor() {
       label: 'Video uploaded',
       text: s === 'transcribing'
         ? `Got it! I've already started transcribing your video. Pick a voice for the narration while I work on it:`
-        : `Got it! I've got your video ready. Now let's give it the VideoPolish treatment — cleaner pacing, polished audio, and a fresh narration.\n\nPick a voice for the narration:`,
+        : `Got it! I've got your video ready. Now let's give it the Clipkatha treatment — cleaner pacing, polished audio, and a fresh narration.\n\nPick a voice for the narration:`,
       widget: isPreVoice ? { type: 'voice-picker' } : undefined,
     })
 
@@ -615,7 +615,7 @@ export default function VideoEditor() {
               <Sparkles className="w-3.5 h-3.5 text-white" />
             </div>
             <span className="font-bold text-gray-900 text-base tracking-tight">
-              Video<span className="text-brand-violet">Polish</span>
+              Clip<span className="text-brand-violet">katha</span>
             </span>
           </Link>
         </div>
@@ -965,51 +965,6 @@ function RenderProgressWidget({ video }: { video: Video | null }) {
   )
 }
 
-// ── Word-level diff helpers ───────────────────────────────────────────────
-
-function computeWordDiff(a: string, b: string) {
-  const aw = a.trim().split(/\s+/)
-  const bw = b.trim().split(/\s+/)
-  const m = aw.length, n = bw.length
-  const dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0))
-  for (let i = 1; i <= m; i++)
-    for (let j = 1; j <= n; j++)
-      dp[i][j] = aw[i-1] === bw[j-1] ? dp[i-1][j-1] + 1 : Math.max(dp[i-1][j], dp[i][j-1])
-
-  const parts: { word: string; type: 'same' | 'del' | 'ins' }[] = []
-  let i = m, j = n
-  while (i > 0 || j > 0) {
-    if (i > 0 && j > 0 && aw[i-1] === bw[j-1]) {
-      parts.unshift({ word: aw[i-1], type: 'same' }); i--; j--
-    } else if (j > 0 && (i === 0 || dp[i][j-1] >= dp[i-1][j])) {
-      parts.unshift({ word: bw[j-1], type: 'ins' }); j--
-    } else {
-      parts.unshift({ word: aw[i-1], type: 'del' }); i--
-    }
-  }
-  return parts
-}
-
-function WordDiff({ original, cleaned }: { original: string; cleaned: string }) {
-  const parts = computeWordDiff(original, cleaned)
-  // Show original text: deleted words in red strikethrough, kept words in gray.
-  // Inserted words (in cleaned but not original) are skipped — they're visible in the editable line above.
-  return (
-    <p className="text-[11px] leading-relaxed mt-1.5">
-      {parts.map((p, idx) => {
-        if (p.type === 'ins') return null
-        return (
-          <span
-            key={idx}
-            className={p.type === 'del' ? 'text-red-400 line-through' : 'text-gray-400'}
-          >
-            {p.word}{' '}
-          </span>
-        )
-      })}
-    </p>
-  )
-}
 
 // ── TranscriptWidget ──────────────────────────────────────────────────────
 

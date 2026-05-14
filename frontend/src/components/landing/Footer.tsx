@@ -9,11 +9,8 @@ const Footer: React.FC = () => {
           <div className="w-6 h-6 rounded-lg bg-brand-violet flex items-center justify-center">
             <Sparkles className="w-3.5 h-3.5 text-white" />
           </div>
-          <p className="text-gray-500 text-xs font-medium">© 2025 VideoPolish</p>
+          <p className="text-gray-500 text-xs font-medium">© 2025 Clipkatha</p>
         </div>
-        <p className="text-gray-400 text-xs">
-          Built with Whisper · GPT-4o · OpenAI TTS · FFmpeg
-        </p>
       </div>
     </footer>
   )

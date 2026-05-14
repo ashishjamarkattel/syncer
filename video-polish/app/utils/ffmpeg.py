@@ -18,7 +18,7 @@ def run_ffmpeg(args: list[str]) -> None:
 def get_duration(path: str) -> float:
     cmd = [
         "ffprobe", "-v", "error",
-        "-show_entries", "format=duration",
+        "-show_entries", "format=duration:stream=duration",
         "-of", "json",
         path,
     ]
@@ -27,7 +27,13 @@ def get_duration(path: str) -> float:
     if result.returncode != 0:
         raise RuntimeError(f"ffprobe failed: {result.stderr}")
     data = json.loads(result.stdout)
-    return float(data["format"]["duration"])
+    fmt_dur = data.get("format", {}).get("duration")
+    if fmt_dur is not None:
+        return float(fmt_dur)
+    for stream in data.get("streams", []):
+        if stream.get("duration"):
+            return float(stream["duration"])
+    raise RuntimeError(f"ffprobe returned no duration for {path}")
 
 
 def has_audio_stream(path: str) -> bool:
