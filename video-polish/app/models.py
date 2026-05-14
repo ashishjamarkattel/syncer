@@ -8,6 +8,7 @@ class Video:
     id: str
     filename: str
     voice: str
+    user_id: Optional[str] = None
     status: str = "uploaded"
     caption_style: Optional[str] = None
     error_message: Optional[str] = None
@@ -20,6 +21,7 @@ class Video:
             id=row["id"],
             filename=row["filename"],
             voice=row["voice"],
+            user_id=row.get("user_id"),
             status=row.get("status", "uploaded"),
             caption_style=row.get("caption_style"),
             error_message=row.get("error_message"),

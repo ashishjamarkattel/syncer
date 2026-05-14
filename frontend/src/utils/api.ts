@@ -1,3 +1,5 @@
+import { supabase } from '../lib/supabase'
+
 const BASE = '/api'
 
 export interface Video {
@@ -27,7 +29,12 @@ export interface ChatResponse {
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${BASE}${path}`, init)
+  const { data: { session } } = await supabase.auth.getSession()
+  const headers = new Headers(init?.headers)
+  if (session?.access_token) {
+    headers.set('Authorization', `Bearer ${session.access_token}`)
+  }
+  const res = await fetch(`${BASE}${path}`, { ...init, headers })
   if (!res.ok) throw new Error(await res.text())
   return res.json()
 }

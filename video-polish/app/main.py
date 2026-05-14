@@ -5,7 +5,8 @@ import uuid
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import BackgroundTasks, FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import BackgroundTasks, Depends, FastAPI, File, Form, HTTPException, Security, UploadFile
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, PlainTextResponse, RedirectResponse
 from openai import OpenAI
@@ -22,6 +23,17 @@ from app.schemas import (
     VideoResponse, VideoStatusResponse, VideoUpdate,
 )
 from app.utils.ffmpeg import check_ffmpeg_available
+
+_bearer = HTTPBearer()
+
+
+def get_current_user_id(creds: HTTPAuthorizationCredentials = Security(_bearer)) -> str:
+    try:
+        result = supabase.auth.get_user(creds.credentials)
+        return result.user.id
+    except Exception:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+
 
 logging.basicConfig(
     level=logging.INFO,
@@ -93,8 +105,8 @@ def health():
 # ── Video CRUD ──────────────────────────────────────────────────────────────
 
 @app.get("/videos", response_model=list[VideoResponse])
-def list_videos():
-    resp = supabase.table("videos").select("*").order("created_at", desc=True).execute()
+def list_videos(user_id: str = Depends(get_current_user_id)):
+    resp = supabase.table("videos").select("*").eq("user_id", user_id).order("created_at", desc=True).execute()
     return [VideoResponse.model_validate(row) for row in (resp.data or [])]
 
 
@@ -103,6 +115,7 @@ async def upload_video(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     voice: str = Form(default=None),
+    user_id: str = Depends(get_current_user_id),
 ):
     video_id = str(uuid.uuid4())
     ext = Path(file.filename).suffix.lstrip(".")
@@ -125,6 +138,7 @@ async def upload_video(
         "filename": file.filename,
         "voice": voice or settings.default_voice,
         "status": "transcribing",
+        "user_id": user_id,
     }
     supabase.table("videos").insert(row).execute()
     background_tasks.add_task(run_transcription_pipeline, video_id, settings.storage_dir)
@@ -133,14 +147,14 @@ async def upload_video(
 
 
 @app.get("/videos/{video_id}", response_model=VideoResponse)
-def get_video_endpoint(video_id: str):
-    video = _get_or_404(video_id)
+def get_video_endpoint(video_id: str, user_id: str = Depends(get_current_user_id)):
+    video = _get_or_404(video_id, user_id)
     return VideoResponse.model_validate(vars(video))
 
 
 @app.patch("/videos/{video_id}", response_model=VideoResponse)
-def update_video(video_id: str, body: VideoUpdate):
-    video = _get_or_404(video_id)
+def update_video(video_id: str, body: VideoUpdate, user_id: str = Depends(get_current_user_id)):
+    video = _get_or_404(video_id, user_id)
     updates: dict = {}
     if body.voice is not None:
         updates["voice"] = body.voice
@@ -158,8 +172,8 @@ def update_video(video_id: str, body: VideoUpdate):
 # ── Pipeline control ────────────────────────────────────────────────────────
 
 @app.post("/videos/{video_id}/process", response_model=VideoStatusResponse)
-def process_video(video_id: str, background_tasks: BackgroundTasks):
-    video = _get_or_404(video_id)
+def process_video(video_id: str, background_tasks: BackgroundTasks, user_id: str = Depends(get_current_user_id)):
+    video = _get_or_404(video_id, user_id)
 
     if video.status in {"transcribing", "cleaning"}:
         return {"id": video_id, "status": video.status}
@@ -179,8 +193,8 @@ def process_video(video_id: str, background_tasks: BackgroundTasks):
 
 
 @app.post("/videos/{video_id}/continue", response_model=VideoStatusResponse)
-def continue_video(video_id: str, background_tasks: BackgroundTasks):
-    video = _get_or_404(video_id)
+def continue_video(video_id: str, background_tasks: BackgroundTasks, user_id: str = Depends(get_current_user_id)):
+    video = _get_or_404(video_id, user_id)
 
     if video.status in ACTIVE_STATUSES:
         raise HTTPException(status_code=409, detail=f"Already processing ({video.status})")
@@ -200,15 +214,15 @@ def continue_video(video_id: str, background_tasks: BackgroundTasks):
 # ── Segments ────────────────────────────────────────────────────────────────
 
 @app.get("/videos/{video_id}/segments", response_model=list[SegmentResponse])
-def get_segments_endpoint(video_id: str):
-    _get_or_404(video_id)
+def get_segments_endpoint(video_id: str, user_id: str = Depends(get_current_user_id)):
+    _get_or_404(video_id, user_id)
     segments = get_segments(video_id)
     return [SegmentResponse.model_validate(vars(s)) for s in segments]
 
 
 @app.put("/videos/{video_id}/segments/{seg_id}", response_model=SegmentResponse)
-def update_segment(video_id: str, seg_id: int, body: SegmentUpdate):
-    _get_or_404(video_id)
+def update_segment(video_id: str, seg_id: int, body: SegmentUpdate, user_id: str = Depends(get_current_user_id)):
+    _get_or_404(video_id, user_id)
     resp = (
         supabase.table("segments")
         .update({"cleaned_text": body.cleaned_text})
@@ -240,8 +254,8 @@ Never make a segment longer than 20 words unless explicitly asked.\
 
 
 @app.post("/videos/{video_id}/chat", response_model=ChatResponse)
-async def chat_with_video(video_id: str, body: ChatRequest):
-    video = _get_or_404(video_id)
+async def chat_with_video(video_id: str, body: ChatRequest, user_id: str = Depends(get_current_user_id)):
+    video = _get_or_404(video_id, user_id)
     if video.status != "transcribed":
         raise HTTPException(status_code=409, detail="Chat editing only available while reviewing transcript")
 
@@ -283,8 +297,8 @@ async def chat_with_video(video_id: str, body: ChatRequest):
 # ── Recaption ───────────────────────────────────────────────────────────────
 
 @app.post("/videos/{video_id}/recaption", response_model=VideoStatusResponse)
-def recaption_video(video_id: str, body: RecaptionRequest, background_tasks: BackgroundTasks):
-    video = _get_or_404(video_id)
+def recaption_video(video_id: str, body: RecaptionRequest, background_tasks: BackgroundTasks, user_id: str = Depends(get_current_user_id)):
+    video = _get_or_404(video_id, user_id)
     if video.status != "completed":
         raise HTTPException(status_code=409, detail=f"Video must be completed, got: {video.status}")
 
@@ -317,8 +331,8 @@ def get_voice_preview(voice_id: str):
 # ── File serving ────────────────────────────────────────────────────────────
 
 @app.get("/videos/{video_id}/source")
-def get_source_video(video_id: str):
-    _get_or_404(video_id)
+def get_source_video(video_id: str, user_id: str = Depends(get_current_user_id)):
+    _get_or_404(video_id, user_id)
     if settings.r2_enabled:
         raw_dir = os.path.join(settings.storage_dir, video_id, "raw")
         source_path = _find_source(raw_dir)
@@ -332,8 +346,8 @@ def get_source_video(video_id: str):
 
 
 @app.get("/videos/{video_id}/download")
-def download_video(video_id: str):
-    video = _get_or_404(video_id)
+def download_video(video_id: str, user_id: str = Depends(get_current_user_id)):
+    video = _get_or_404(video_id, user_id)
     if video.status != "completed":
         raise HTTPException(status_code=404, detail=f"Video not ready ({video.status})")
 
@@ -352,8 +366,8 @@ def download_video(video_id: str):
 
 
 @app.get("/videos/{video_id}/export/srt")
-def export_srt(video_id: str):
-    _get_or_404(video_id)
+def export_srt(video_id: str, user_id: str = Depends(get_current_user_id)):
+    _get_or_404(video_id, user_id)
     segments = get_segments(video_id)
     if not segments:
         raise HTTPException(status_code=404, detail="No segments found")
@@ -371,9 +385,11 @@ def export_srt(video_id: str):
 
 # ── Helpers ─────────────────────────────────────────────────────────────────
 
-def _get_or_404(video_id: str) -> Video:
+def _get_or_404(video_id: str, user_id: str) -> Video:
     video = get_video(video_id)
     if video is None:
+        raise HTTPException(status_code=404, detail="Video not found")
+    if video.user_id != user_id:
         raise HTTPException(status_code=404, detail="Video not found")
     return video
 

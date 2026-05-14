@@ -15,13 +15,19 @@ export default function AuthCallback() {
     processed.current = true
 
     const handle = async () => {
+      // Supabase can return errors in either the hash fragment or query string
       const hashParams = new URLSearchParams(window.location.hash.substring(1))
-      const errorParam = hashParams.get('error')
+      const queryParams = new URLSearchParams(window.location.search)
+      const errorParam = hashParams.get('error') || queryParams.get('error')
+      const errorDescription =
+        hashParams.get('error_description') ||
+        queryParams.get('error_description') ||
+        'Authentication failed'
 
       if (errorParam) {
         if (!hasShownNotification) {
           hasShownNotification = true
-          toast.error(hashParams.get('error_description') || 'Authentication failed')
+          toast.error(errorDescription)
           setTimeout(() => { hasShownNotification = false }, 3000)
         }
         navigate('/login')
