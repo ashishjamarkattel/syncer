@@ -367,7 +367,8 @@ def get_file_url(
         key = f"{video_id}/raw/source.{ext}"
 
     if settings.r2_enabled:
-        return {"url": r2.presigned_url(key, expires_in=3600)}
+        dl_filename = f"polished_{video.filename}" if type == "download" else None
+        return {"url": r2.presigned_url(key, expires_in=3600, filename=dl_filename)}
 
     # Local: embed token in query param so the browser <video> element can stream directly.
     # Only applies in local dev — R2 (production) uses presigned URLs above.

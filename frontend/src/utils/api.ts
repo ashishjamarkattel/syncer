@@ -109,19 +109,15 @@ export async function fetchVideoUrl(id: string, type: 'source' | 'download'): Pr
 
 export async function triggerDownload(id: string, filename: string): Promise<void> {
   const { url } = await request<{ url: string }>(`/videos/${id}/file-url?type=download`)
-  // Fetch as blob so a.download is respected — browsers ignore a.download for cross-origin URLs
-  // (e.g. R2 presigned URLs). The blob URL is same-origin so the filename is preserved.
-  const res = await fetch(url)
-  if (!res.ok) throw new Error(`Server returned ${res.status}`)
-  const blob = await res.blob()
-  const blobUrl = URL.createObjectURL(blob)
+  // The URL already has Content-Disposition: attachment baked in (via ResponseContentDisposition
+  // for R2 presigned URLs, or FileResponse filename= for local). Just navigate — no blob fetch
+  // needed, and no CORS issues since browser navigation is not subject to CORS.
   const a = document.createElement('a')
-  a.href = blobUrl
-  a.download = filename
+  a.href = url
+  if (!url.startsWith('http')) a.download = filename  // a.download only works same-origin
   document.body.appendChild(a)
   a.click()
   document.body.removeChild(a)
-  setTimeout(() => URL.revokeObjectURL(blobUrl), 10_000)
 }
 
 export async function triggerSrtDownload(id: string, filename: string): Promise<void> {
