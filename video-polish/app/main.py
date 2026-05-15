@@ -25,11 +25,27 @@ from app.schemas import (
 from app.utils.ffmpeg import check_ffmpeg_available
 
 _bearer = HTTPBearer()
+_bearer_optional = HTTPBearer(auto_error=False)
 
 
 def get_current_user_id(creds: HTTPAuthorizationCredentials = Security(_bearer)) -> str:
     try:
         result = supabase.auth.get_user(creds.credentials)
+        return result.user.id
+    except Exception:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+
+
+def _get_user_id_flexible(
+    token: str = Query(default=None),
+    creds: HTTPAuthorizationCredentials | None = Security(_bearer_optional),
+) -> str:
+    """Accept JWT from Bearer header OR ?token= query param (for browser video streaming)."""
+    jwt = (creds.credentials if creds else None) or token
+    if not jwt:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    try:
+        result = supabase.auth.get_user(jwt)
         return result.user.id
     except Exception:
         raise HTTPException(status_code=401, detail="Invalid or expired token")
@@ -334,9 +350,10 @@ def get_voice_preview(voice_id: str):
 def get_file_url(
     video_id: str,
     type: str = Query(..., pattern="^(source|download)$"),
+    creds: HTTPAuthorizationCredentials = Security(_bearer),
     user_id: str = Depends(get_current_user_id),
 ):
-    """Return a presigned URL (R2) for direct browser access. Local mode not used by the frontend."""
+    """Return a streamable URL for the browser video player."""
     video = _get_or_404(video_id, user_id)
 
     if type == "download":
@@ -350,18 +367,20 @@ def get_file_url(
         key = f"{video_id}/raw/source.{ext}"
 
     if settings.r2_enabled:
-        return {"url": r2.presigned_url(key, expires_in=300)}
+        return {"url": r2.presigned_url(key, expires_in=3600)}
 
-    # Local serving: frontend fetches these directly with auth headers, not via this URL
+    # Local: embed token in query param so the browser <video> element can stream directly.
+    # Only applies in local dev — R2 (production) uses presigned URLs above.
+    t = creds.credentials
     if type == "download":
-        return {"url": f"/api/videos/{video_id}/download"}
-    return {"url": f"/api/videos/{video_id}/source"}
+        return {"url": f"/api/videos/{video_id}/download?token={t}"}
+    return {"url": f"/api/videos/{video_id}/source?token={t}"}
 
 
 # ── File serving ────────────────────────────────────────────────────────────
 
 @app.get("/videos/{video_id}/source")
-def get_source_video(video_id: str, user_id: str = Depends(get_current_user_id)):
+def get_source_video(video_id: str, user_id: str = Depends(_get_user_id_flexible)):
     _get_or_404(video_id, user_id)
     if settings.r2_enabled:
         raw_dir = os.path.join(settings.storage_dir, video_id, "raw")
@@ -376,7 +395,7 @@ def get_source_video(video_id: str, user_id: str = Depends(get_current_user_id))
 
 
 @app.get("/videos/{video_id}/download")
-def download_video(video_id: str, user_id: str = Depends(get_current_user_id)):
+def download_video(video_id: str, user_id: str = Depends(_get_user_id_flexible)):
     video = _get_or_404(video_id, user_id)
     if video.status != "completed":
         raise HTTPException(status_code=404, detail=f"Video not ready ({video.status})")

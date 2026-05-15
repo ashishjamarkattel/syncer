@@ -1084,18 +1084,31 @@ function DownloadWidget({ videoId, video, stage, onRecaption }: {
   onRecaption: (captionStyle: string) => void
 }) {
   const [captionStyle, setCaptionStyle] = useState(video?.caption_style || 'none')
+  const [downloading, setDownloading] = useState(false)
   const isApplying = stage === 'recaptioning'
   const isUnchanged = captionStyle === (video?.caption_style || 'none')
+
+  const handleDownload = async () => {
+    setDownloading(true)
+    try {
+      await triggerDownload(videoId, `polished_${videoId}.mp4`)
+    } catch {
+      toast.error('Download failed — try again')
+    } finally {
+      setDownloading(false)
+    }
+  }
 
   return (
     <div className="space-y-3 max-w-sm">
       <div className="flex gap-2">
         <button
-          onClick={() => triggerDownload(videoId, `polished_${videoId}.mp4`)}
-          className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold bg-blue-600 text-white hover:bg-blue-700 transition-colors cursor-pointer"
+          onClick={handleDownload}
+          disabled={downloading}
+          className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-70 transition-colors cursor-pointer"
         >
-          <Download className="w-4 h-4" />
-          Download video
+          {downloading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+          {downloading ? 'Downloading…' : 'Download video'}
         </button>
         <button
           onClick={() => triggerSrtDownload(videoId, `subtitles_${videoId}.srt`)}
@@ -1151,11 +1164,9 @@ function PreviewPanel({ video, videoId, stage }: {
   const isDone = stage === 'done'
 
   useEffect(() => {
-    let blobUrl: string | null = null
     fetchVideoUrl(videoId, isDone ? 'download' : 'source')
-      .then(url => { blobUrl = url.startsWith('blob:') ? url : null; setVideoSrc(url) })
+      .then(url => setVideoSrc(url))
       .catch(() => {})
-    return () => { if (blobUrl) URL.revokeObjectURL(blobUrl) }
   }, [videoId, isDone, video?.updated_at])
 
   const togglePlay = () => {

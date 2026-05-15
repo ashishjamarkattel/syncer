@@ -112,12 +112,10 @@ async function authedFetch(path: string): Promise<Blob> {
 }
 
 export async function fetchVideoUrl(id: string, type: 'source' | 'download'): Promise<string> {
+  // Returns either an R2 presigned URL or a local URL with token embedded —
+  // both are safe for use directly as <video src> (browser can stream MP4).
   const { url } = await request<{ url: string }>(`/videos/${id}/file-url?type=${type}`)
-  // R2 presigned URLs are absolute — the browser can use them directly
-  if (url.startsWith('http')) return url
-  // Local paths require an auth header — fetch as blob so the token stays out of the URL
-  const blob = await authedFetch(url.replace(/^\/api/, ''))
-  return URL.createObjectURL(blob)
+  return url
 }
 
 export async function triggerDownload(id: string, filename: string): Promise<void> {
