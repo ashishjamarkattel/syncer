@@ -102,32 +102,26 @@ export async function recaptionVideo(id: string, captionStyle: string): Promise<
   })
 }
 
-async function authedFetch(path: string): Promise<Blob> {
-  const { data: { session } } = await supabase.auth.getSession()
-  const headers = new Headers()
-  if (session?.access_token) headers.set('Authorization', `Bearer ${session.access_token}`)
-  const res = await fetch(`${BASE}${path}`, { headers })
-  if (!res.ok) throw new Error(await res.text())
-  return res.blob()
-}
-
 export async function fetchVideoUrl(id: string, type: 'source' | 'download'): Promise<string> {
-  // Returns either an R2 presigned URL or a local URL with token embedded —
-  // both are safe for use directly as <video src> (browser can stream MP4).
   const { url } = await request<{ url: string }>(`/videos/${id}/file-url?type=${type}`)
   return url
 }
 
 export async function triggerDownload(id: string, filename: string): Promise<void> {
-  const blob = await authedFetch(`/videos/${id}/download`)
-  const url = URL.createObjectURL(blob)
+  const { url } = await request<{ url: string }>(`/videos/${id}/file-url?type=download`)
+  // Fetch as blob so a.download is respected — browsers ignore a.download for cross-origin URLs
+  // (e.g. R2 presigned URLs). The blob URL is same-origin so the filename is preserved.
+  const res = await fetch(url)
+  if (!res.ok) throw new Error(`Server returned ${res.status}`)
+  const blob = await res.blob()
+  const blobUrl = URL.createObjectURL(blob)
   const a = document.createElement('a')
-  a.href = url
+  a.href = blobUrl
   a.download = filename
   document.body.appendChild(a)
   a.click()
   document.body.removeChild(a)
-  setTimeout(() => URL.revokeObjectURL(url), 10_000)
+  setTimeout(() => URL.revokeObjectURL(blobUrl), 10_000)
 }
 
 export async function triggerSrtDownload(id: string, filename: string): Promise<void> {

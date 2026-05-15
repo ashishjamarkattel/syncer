@@ -1092,8 +1092,8 @@ function DownloadWidget({ videoId, video, stage, onRecaption }: {
     setDownloading(true)
     try {
       await triggerDownload(videoId, `polished_${videoId}.mp4`)
-    } catch {
-      toast.error('Download failed — try again')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Download failed — try again')
     } finally {
       setDownloading(false)
     }
