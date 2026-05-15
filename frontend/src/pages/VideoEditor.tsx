@@ -8,7 +8,7 @@ import {
 import {
   getVideo, getSegments, updateVideo, processVideo, continueVideo,
   chatWithVideo, updateSegment, recaptionVideo,
-  fetchVideoUrl, triggerDownload, sourceApiPath, downloadApiPath, srtApiPath,
+  fetchVideoUrl, triggerDownload, triggerSrtDownload,
   type Video, type Segment,
 } from '../utils/api'
 
@@ -1091,14 +1091,14 @@ function DownloadWidget({ videoId, video, stage, onRecaption }: {
     <div className="space-y-3 max-w-sm">
       <div className="flex gap-2">
         <button
-          onClick={() => triggerDownload(downloadApiPath(videoId), `polished_${videoId}.mp4`)}
+          onClick={() => triggerDownload(videoId, `polished_${videoId}.mp4`)}
           className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold bg-blue-600 text-white hover:bg-blue-700 transition-colors cursor-pointer"
         >
           <Download className="w-4 h-4" />
           Download video
         </button>
         <button
-          onClick={() => triggerDownload(srtApiPath(videoId), `subtitles_${videoId}.srt`)}
+          onClick={() => triggerSrtDownload(videoId, `subtitles_${videoId}.srt`)}
           className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold border border-gray-200 text-gray-700 hover:bg-gray-50 transition-colors cursor-pointer"
         >
           Export SRT
@@ -1151,16 +1151,11 @@ function PreviewPanel({ video, videoId, stage }: {
   const isDone = stage === 'done'
 
   useEffect(() => {
-    let objectUrl = ''
-    const path = isDone
-      ? `${downloadApiPath(videoId)}${video?.updated_at ? `?v=${encodeURIComponent(video.updated_at)}` : ''}`
-      : sourceApiPath(videoId)
-
-    fetchVideoUrl(path)
-      .then(url => { objectUrl = url; setVideoSrc(url) })
+    let blobUrl: string | null = null
+    fetchVideoUrl(videoId, isDone ? 'download' : 'source')
+      .then(url => { blobUrl = url.startsWith('blob:') ? url : null; setVideoSrc(url) })
       .catch(() => {})
-
-    return () => { if (objectUrl) URL.revokeObjectURL(objectUrl) }
+    return () => { if (blobUrl) URL.revokeObjectURL(blobUrl) }
   }, [videoId, isDone, video?.updated_at])
 
   const togglePlay = () => {

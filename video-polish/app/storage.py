@@ -26,3 +26,11 @@ def upload(local_path: str, key: str) -> None:
 
 def public_url(key: str) -> str:
     return f"{settings.r2_public_url.rstrip('/')}/{key}"
+
+
+def presigned_url(key: str, expires_in: int = 300) -> str:
+    return _client().generate_presigned_url(
+        "get_object",
+        Params={"Bucket": settings.r2_bucket, "Key": key},
+        ExpiresIn=expires_in,
+    )

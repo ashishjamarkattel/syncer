@@ -20,7 +20,6 @@ import {
   uploadVideo,
   listVideos,
   triggerDownload,
-  downloadApiPath,
   type Video,
 } from '../utils/api'
 
@@ -487,7 +486,7 @@ function VideoRow({ video }: { video: Video }) {
           )}
           {isCompleted && (
             <button
-              onClick={() => triggerDownload(downloadApiPath(video.id), `polished_${video.id}.mp4`)}
+              onClick={() => triggerDownload(video.id, `polished_${video.id}.mp4`)}
               className="flex items-center gap-1.5 px-3 py-1.5 text-xs bg-brand-violet text-white font-semibold rounded-lg hover:bg-brand-indigo transition-colors cursor-pointer"
             >
               <Download className="w-3.5 h-3.5" />

@@ -102,7 +102,7 @@ export async function recaptionVideo(id: string, captionStyle: string): Promise<
   })
 }
 
-async function fetchBlob(path: string): Promise<Blob> {
+async function authedFetch(path: string): Promise<Blob> {
   const { data: { session } } = await supabase.auth.getSession()
   const headers = new Headers()
   if (session?.access_token) headers.set('Authorization', `Bearer ${session.access_token}`)
@@ -111,29 +111,40 @@ async function fetchBlob(path: string): Promise<Blob> {
   return res.blob()
 }
 
-export async function fetchVideoUrl(path: string): Promise<string> {
-  const blob = await fetchBlob(path)
+export async function fetchVideoUrl(id: string, type: 'source' | 'download'): Promise<string> {
+  const { url } = await request<{ url: string }>(`/videos/${id}/file-url?type=${type}`)
+  // R2 presigned URLs are absolute — the browser can use them directly
+  if (url.startsWith('http')) return url
+  // Local paths require an auth header — fetch as blob so the token stays out of the URL
+  const blob = await authedFetch(url.replace(/^\/api/, ''))
   return URL.createObjectURL(blob)
 }
 
-export async function triggerDownload(path: string, filename: string): Promise<void> {
-  const blob = await fetchBlob(path)
+export async function triggerDownload(id: string, filename: string): Promise<void> {
+  const blob = await authedFetch(`/videos/${id}/download`)
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
   a.download = filename
+  document.body.appendChild(a)
   a.click()
-  URL.revokeObjectURL(url)
+  document.body.removeChild(a)
+  setTimeout(() => URL.revokeObjectURL(url), 10_000)
 }
 
-export function sourceApiPath(id: string): string {
-  return `/videos/${id}/source`
-}
-
-export function downloadApiPath(id: string): string {
-  return `/videos/${id}/download`
-}
-
-export function srtApiPath(id: string): string {
-  return `/videos/${id}/export/srt`
+export async function triggerSrtDownload(id: string, filename: string): Promise<void> {
+  const { data: { session } } = await supabase.auth.getSession()
+  const headers = new Headers()
+  if (session?.access_token) headers.set('Authorization', `Bearer ${session.access_token}`)
+  const res = await fetch(`${BASE}/videos/${id}/export/srt`, { headers })
+  if (!res.ok) throw new Error(await res.text())
+  const blob = await res.blob()
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  setTimeout(() => URL.revokeObjectURL(url), 10_000)
 }

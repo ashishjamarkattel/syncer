@@ -5,7 +5,7 @@ import uuid
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import BackgroundTasks, Depends, FastAPI, File, Form, HTTPException, Security, UploadFile
+from fastapi import BackgroundTasks, Depends, FastAPI, File, Form, HTTPException, Query, Security, UploadFile
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, PlainTextResponse, RedirectResponse
@@ -326,6 +326,36 @@ def get_voice_preview(voice_id: str):
     if not os.path.isfile(path):
         raise HTTPException(status_code=404, detail="Preview not found")
     return FileResponse(path, media_type="audio/wav")
+
+
+# ── File URLs ───────────────────────────────────────────────────────────────
+
+@app.get("/videos/{video_id}/file-url")
+def get_file_url(
+    video_id: str,
+    type: str = Query(..., pattern="^(source|download)$"),
+    user_id: str = Depends(get_current_user_id),
+):
+    """Return a presigned URL (R2) for direct browser access. Local mode not used by the frontend."""
+    video = _get_or_404(video_id, user_id)
+
+    if type == "download":
+        if video.status != "completed":
+            raise HTTPException(status_code=404, detail=f"Video not ready ({video.status})")
+        key = f"{video_id}/output/polished.mp4"
+    else:
+        raw_dir = os.path.join(settings.storage_dir, video_id, "raw")
+        source_path = _find_source(raw_dir)
+        ext = Path(source_path).suffix.lstrip(".") if source_path else "mp4"
+        key = f"{video_id}/raw/source.{ext}"
+
+    if settings.r2_enabled:
+        return {"url": r2.presigned_url(key, expires_in=300)}
+
+    # Local serving: frontend fetches these directly with auth headers, not via this URL
+    if type == "download":
+        return {"url": f"/api/videos/{video_id}/download"}
+    return {"url": f"/api/videos/{video_id}/source"}
 
 
 # ── File serving ────────────────────────────────────────────────────────────
